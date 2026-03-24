@@ -1,0 +1,214 @@
+#!/usr/bin/env php
+<?php
+/**
+ * Script de Test para AI Auto Blog Cron
+ * 
+ * Este script verifica que todo esté configurado correctamente
+ * antes de ejecutar el cron real
+ * 
+ * Uso:
+ * php /ruta/a/wordpress/wp-content/plugins/ai-auto-blog/cron-test.php
+ * 
+ * @package AI_Auto_Blog
+ */
+
+// Protección ABSPATH - Plugin Check requirement
+// Para CLI: ABSPATH se define después de cargar WordPress (línea 46)
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- CLI script, output escaping not needed
+// phpcs:disable WordPress.DateTime.RestrictedFunctions.date_date -- CLI script, timezone handling different
+
+// Este es un script CLI - verificar ejecución desde línea de comandos
+if (php_sapi_name() !== 'cli') {
+    exit('Este script solo puede ejecutarse desde línea de comandos.');
+}
+
+echo "=================================================\n";
+echo "AI AUTO BLOG - TEST DE CONFIGURACIÓN DE CRON\n";
+echo "=================================================\n\n";
+
+// Detectar la ruta de WordPress
+$wp_load_path = dirname(dirname(dirname(dirname(__FILE__)))) . '/wp-load.php';
+
+echo "[1] Verificando ruta de WordPress...\n";
+echo "    Buscando en: $wp_load_path\n";
+
+if (!file_exists($wp_load_path)) {
+    echo "    ❌ ERROR: No se encontró wp-load.php\n";
+    echo "\n";
+    echo "SOLUCIÓN:\n";
+    echo "El script debe estar en: wp-content/plugins/ai-auto-blog/\n";
+    echo "Verifica que la estructura de carpetas sea correcta.\n";
+    exit(1);
+}
+
+echo "    ✅ wp-load.php encontrado\n\n";
+
+// Cargar WordPress
+echo "[2] Cargando WordPress...\n";
+require_once($wp_load_path);
+
+if (!function_exists('get_option')) {
+    echo "    ❌ ERROR: WordPress no se cargó correctamente\n";
+    exit(1);
+}
+
+// Verificar que ABSPATH está definido (WordPress cargado correctamente)
+if (!defined('ABSPATH')) {
+    echo "    ❌ ERROR: ABSPATH no definido - WordPress no se inicializó\n";
+    exit(1);
+}
+
+echo "    ✅ WordPress cargado\n";
+echo "    Sitio: " . get_bloginfo('name') . "\n";
+echo "    URL: " . get_bloginfo('url') . "\n\n";
+
+// Verificar plugin
+echo "[3] Verificando plugin AI Auto Blog...\n";
+
+if (!class_exists('AI_Auto_Blog_Post_Generator')) {
+    echo "    ❌ ERROR: El plugin AI Auto Blog no está activo\n";
+    echo "\n";
+    echo "SOLUCIÓN:\n";
+    echo "Activa el plugin desde WordPress Admin → Plugins\n";
+    exit(1);
+}
+
+echo "    ✅ Plugin activo\n\n";
+
+// Verificar configuración
+echo "[4] Verificando configuración...\n";
+
+$settings = get_option('ai_auto_blog_settings', array());
+
+if (empty($settings)) {
+    echo "    ❌ ERROR: No hay configuración guardada\n";
+    echo "\n";
+    echo "SOLUCIÓN:\n";
+    echo "Configura el plugin desde WordPress Admin → Ajustes → AI Auto Blog\n";
+    exit(1);
+}
+
+echo "    ✅ Configuración encontrada\n";
+
+// Mostrar configuración
+echo "\n";
+echo "CONFIGURACIÓN ACTUAL:\n";
+echo "-------------------------------------------------\n";
+
+$api_key = isset($settings['api_key']) ? $settings['api_key'] : '';
+if (!empty($api_key)) {
+    echo "API Key: " . substr($api_key, 0, 10) . "..." . substr($api_key, -5) . "\n";
+} else {
+    echo "❌ API Key: NO CONFIGURADA\n";
+}
+
+$frequency = isset($settings['frequency']) ? $settings['frequency'] : 'manual';
+echo "Frecuencia: " . strtoupper($frequency) . "\n";
+
+$length = isset($settings['length']) ? $settings['length'] : 'medium';
+echo "Longitud: " . ucfirst($length) . "\n";
+
+$model = isset($settings['model']) ? $settings['model'] : 'gemini-2.5-flash';
+echo "Modelo: " . $model . "\n";
+
+$post_status = isset($settings['post_status']) ? $settings['post_status'] : 'draft';
+echo "Estado de publicación: " . ucfirst($post_status) . "\n";
+
+$use_topics = isset($settings['use_random_topics']) && $settings['use_random_topics'] === 'yes';
+echo "Temas aleatorios: " . ($use_topics ? "✅ SÍ" : "❌ NO") . "\n";
+
+if ($use_topics && !empty($settings['topics'])) {
+    $topics = explode(',', $settings['topics']);
+    echo "Temas configurados: " . count($topics) . "\n";
+}
+
+echo "\n";
+
+// Verificar última ejecución
+echo "[5] Información de ejecución...\n";
+
+$last_execution = get_option('ai_auto_blog_last_cron_execution', 0);
+if ($last_execution > 0) {
+    echo "    Última ejecución: " . date('Y-m-d H:i:s', $last_execution) . "\n";
+    echo "    Hace: " . human_time_diff($last_execution, time()) . "\n";
+} else {
+    echo "    ⚠️  Nunca se ha ejecutado desde el cron del sistema\n";
+}
+
+// Últimos posts
+$last_posts = get_posts(array(
+    'post_type' => 'ai_blog_post',
+    'posts_per_page' => 3,
+    'orderby' => 'date',
+    'order' => 'DESC'
+));
+
+if (!empty($last_posts)) {
+    echo "\n";
+    echo "ÚLTIMOS POSTS GENERADOS:\n";
+    echo "-------------------------------------------------\n";
+    foreach ($last_posts as $post) {
+        echo "- [" . $post->post_date . "] " . $post->post_title . "\n";
+    }
+} else {
+    echo "\n⚠️  No hay posts generados todavía\n";
+}
+
+echo "\n";
+echo "=================================================\n";
+
+// Verificar si debe generar según frecuencia
+if ($frequency === 'manual') {
+    echo "ℹ️  MODO MANUAL: No se generará automáticamente\n";
+    echo "\n";
+    echo "NOTA: Cambia la frecuencia en el plugin si quieres\n";
+    echo "      generación automática.\n";
+} else {
+    echo "✅ TODO LISTO PARA EJECUCIÓN AUTOMÁTICA\n";
+    echo "\n";
+    echo "COMANDO RECOMENDADO PARA CRON:\n";
+    echo "-------------------------------------------------\n";
+    
+    $script_path = __FILE__;
+    $script_dir = dirname($script_path);
+    $cron_script = $script_dir . '/cron-generate.php';
+    $log_file = '/tmp/ai-auto-blog-cron.log';
+    
+    // Detectar ruta de PHP
+    $php_path = defined('PHP_BINARY') ? PHP_BINARY : '/usr/bin/php';
+    
+    echo "\n";
+    
+    switch ($frequency) {
+        case 'daily':
+            echo "# Ejecutar diariamente a las 9:00 AM\n";
+            echo "0 9 * * * $php_path $cron_script >> $log_file 2>&1\n";
+            break;
+            
+        case 'weekly':
+            echo "# Ejecutar semanalmente (Lunes a las 9:00 AM)\n";
+            echo "0 9 * * 1 $php_path $cron_script >> $log_file 2>&1\n";
+            break;
+            
+        case 'monthly':
+            echo "# Ejecutar mensualmente (día 1 a las 9:00 AM)\n";
+            echo "0 9 1 * * $php_path $cron_script >> $log_file 2>&1\n";
+            break;
+    }
+    
+    echo "\n";
+    echo "VERIFICAR EJECUCIÓN:\n";
+    echo "-------------------------------------------------\n";
+    echo "tail -f $log_file\n";
+}
+
+echo "\n";
+echo "=================================================\n";
+echo "TEST COMPLETADO\n";
+echo "=================================================\n";
+
+exit(0);
