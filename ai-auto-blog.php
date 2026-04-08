@@ -11,7 +11,7 @@
  * Text Domain: ai-auto-blog
  * Domain Path: /languages
  * Requires at least: 5.8
- * Tested up: 6.9
+ * Tested up to: 6.9
  * Requires PHP: 7.4
  */
 
