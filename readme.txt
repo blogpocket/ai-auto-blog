@@ -4,7 +4,7 @@ Tags: ai, auto-blog, gemini, artificial intelligence, content generation
 Requires at least: 5.8
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.4.0
+Stable tag: 1.4.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -114,6 +114,24 @@ Use the built-in Cron Diagnostics tab (Settings → AI Auto Blog → Diagnostics
 6. Generated post example
 
 == Changelog ==
+
+= 1.4.2 =
+* Fix CRITICAL: Added retry system to generate_blog_post_simple() method (was missing in 1.4.1)
+* Fix: The fallback method now also has automatic retries and model switching
+* Fix: Both generation methods (primary and fallback) now handle high-demand errors
+* Improvement: Logs now indicate which method is retrying ([SIMPLE] prefix)
+* Note: This fixes cases where the primary method failed and the simple fallback was used without retries
+
+= 1.4.1 =
+* Fix: Automatic retry system for "high demand" errors from Google Gemini API
+* New: Exponential backoff strategy (5s, 15s, 30s delays between retries)
+* New: Automatic fallback to lighter models (Flash Lite) on second retry
+* New: Detailed logging of retry attempts and model switches
+* New: Up to 3 automatic retries before final failure
+* Improvement: Better error messages showing retry count
+* Fix: Detects multiple high-demand error patterns (quota, resource exhausted)
+* Status: More resilient to temporary API availability issues
+* Note: Solves "This model is currently experiencing high demand" errors automatically
 
 = 1.4.0 - WORDPRESS.ORG READY =
 * Fix: CLI-SCRIPTS-README.md renamed to CLI-SCRIPTS-README.txt (WordPress.org requirement)

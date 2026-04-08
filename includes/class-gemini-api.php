@@ -166,8 +166,12 @@ class AI_Auto_Blog_Gemini_API {
     
     /**
      * Generar contenido estructurado (con título y contenido separados)
+     * Con sistema de reintentos para errores de alta demanda
      */
-    public function generate_blog_post($base_prompt, $length = 'medium') {
+    public function generate_blog_post($base_prompt, $length = 'medium', $retry_count = 0) {
+        $max_retries = 3;
+        $fallback_models = array('gemini-2.0-flash-lite', 'gemini-1.5-flash');
+        
         // Determinar tokens según longitud - TRIPLICADOS para asegurar respuestas completas
         // Nota: Gemini a veces ignora maxOutputTokens, por eso necesitamos ser muy generosos
         $token_limits = array(
@@ -218,6 +222,54 @@ Escribe el artículo COMPLETO ahora:";
         $result = $this->generate_content($full_prompt, $max_tokens);
         
         if (!$result['success']) {
+            // Detectar error de alta demanda
+            $is_high_demand_error = stripos($result['message'], 'high demand') !== false || 
+                                    stripos($result['message'], 'currently experiencing') !== false ||
+                                    stripos($result['message'], 'resource exhausted') !== false ||
+                                    stripos($result['message'], 'quota') !== false;
+            
+            if ($is_high_demand_error && $retry_count < $max_retries) {
+                // Calcular tiempo de espera exponencial: 5s, 15s, 30s
+                $wait_time = (5 * pow(2, $retry_count));
+                
+                // Registrar reintento
+                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Logging retry attempts
+                error_log(sprintf(
+                    'AI Auto Blog: Alta demanda detectada. Reintento %d/%d después de %ds. Modelo: %s',
+                    $retry_count + 1,
+                    $max_retries,
+                    $wait_time,
+                    $this->model
+                ));
+                
+                // Esperar antes de reintentar
+                sleep($wait_time);
+                
+                // En el segundo reintento, cambiar temporalmente a modelo más ligero
+                $original_model = $this->model;
+                if ($retry_count === 1 && !in_array($this->model, $fallback_models)) {
+                    $this->model = $fallback_models[0];
+                    // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+                    error_log('AI Auto Blog: Cambiando temporalmente a modelo: ' . $this->model);
+                }
+                
+                // Reintentar
+                $retry_result = $this->generate_blog_post($base_prompt, $length, $retry_count + 1);
+                
+                // Restaurar modelo original
+                $this->model = $original_model;
+                
+                return $retry_result;
+            }
+            
+            // Si no es error de alta demanda o se agotaron los reintentos
+            if ($retry_count > 0) {
+                $result['message'] .= sprintf(
+                    ' (Falló después de %d reintentos)',
+                    $retry_count
+                );
+            }
+            
             return $result;
         }
         
@@ -347,7 +399,10 @@ Escribe el artículo COMPLETO ahora:";
     /**
      * Método alternativo: Generar con prompt simple (sin JSON)
      */
-    public function generate_blog_post_simple($base_prompt, $length = 'medium') {
+    public function generate_blog_post_simple($base_prompt, $length = 'medium', $retry_count = 0) {
+        $max_retries = 3;
+        $fallback_models = array('gemini-2.0-flash-lite', 'gemini-1.5-flash');
+        
         $token_limits = array(
             'brief' => 4096,
             'medium' => 8192,
@@ -374,6 +429,51 @@ Escribe el artículo ahora:";
         $result = $this->generate_content($full_prompt, $max_tokens);
         
         if (!$result['success']) {
+            // Detectar error de alta demanda (mismo sistema que generate_blog_post)
+            $is_high_demand_error = stripos($result['message'], 'high demand') !== false || 
+                                    stripos($result['message'], 'currently experiencing') !== false ||
+                                    stripos($result['message'], 'resource exhausted') !== false ||
+                                    stripos($result['message'], 'quota') !== false;
+            
+            if ($is_high_demand_error && $retry_count < $max_retries) {
+                // Calcular tiempo de espera exponencial
+                $wait_time = (5 * pow(2, $retry_count));
+                
+                // Registrar reintento
+                // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+                error_log(sprintf(
+                    'AI Auto Blog: [SIMPLE] Alta demanda detectada. Reintento %d/%d después de %ds. Modelo: %s',
+                    $retry_count + 1,
+                    $max_retries,
+                    $wait_time,
+                    $this->model
+                ));
+                
+                // Esperar
+                sleep($wait_time);
+                
+                // Cambiar a modelo más ligero en segundo reintento
+                $original_model = $this->model;
+                if ($retry_count === 1 && !in_array($this->model, $fallback_models)) {
+                    $this->model = $fallback_models[0];
+                    // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+                    error_log('AI Auto Blog: [SIMPLE] Cambiando temporalmente a modelo: ' . $this->model);
+                }
+                
+                // Reintentar
+                $retry_result = $this->generate_blog_post_simple($base_prompt, $length, $retry_count + 1);
+                
+                // Restaurar modelo
+                $this->model = $original_model;
+                
+                return $retry_result;
+            }
+            
+            // Añadir info de reintentos al mensaje de error
+            if ($retry_count > 0) {
+                $result['message'] .= sprintf(' (Falló después de %d reintentos)', $retry_count);
+            }
+            
             return $result;
         }
         

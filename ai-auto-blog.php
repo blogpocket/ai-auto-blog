@@ -3,7 +3,7 @@
  * Plugin Name: AI Auto Blog
  * Plugin URI: https://tusitio.com/ai-auto-blog
  * Description: Plugin para generar contenido automático de blog usando Google Gemini AI con temas aleatorios
- * Version: 1.4.0
+ * Version: 1.4.2
  * Author: Tu Nombre
  * Author URI: https://tusitio.com
  * License: GPL v2 or later
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Definir constantes del plugin
-define('AI_AUTO_BLOG_VERSION', '1.4.0');
+define('AI_AUTO_BLOG_VERSION', '1.4.2');
 define('AI_AUTO_BLOG_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('AI_AUTO_BLOG_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('AI_AUTO_BLOG_PLUGIN_BASENAME', plugin_basename(__FILE__));
